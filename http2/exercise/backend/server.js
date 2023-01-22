@@ -34,6 +34,25 @@ const server = http2.createSecureServer({
  * Code goes here
  *
  */
+server.on("stream",(stream,headers)=>{
+  const path = headers[":path"];
+  const method = headers[":method"];
+
+  if(path==="/msgs"&& method==="GET"){
+    console.log("connected on stream"+stream.id);
+    stream.respond({
+      status: 200,
+      "content-Type": "text/plain,charset=utf8"
+    })
+
+    stream.write(JSON.stringify({msg:getMsgs()}))
+    connections.push(stream)
+    stream.on("close",()=>{
+      console.log("stream disconnected"+stream.id);
+      connections=connections.filter(s=>s!==stream)
+    })
+  }
+})
 
 server.on("request", async (req, res) => {
   const path = req.headers[":path"];
@@ -52,7 +71,15 @@ server.on("request", async (req, res) => {
     }
     const data = Buffer.concat(buffers).toString();
     const { user, text } = JSON.parse(data);
-
+msg.push({
+  user,
+  text,
+  time:Date.now()
+})
+res.end()
+connections.forEach((stream) => {
+  stream.write(JSON.stringify({msg:getMsgs()}))
+})
     /*
      *
      * some code goes here
